@@ -1,0 +1,428 @@
+---
+title: "Tugas MANOVA"
+output: pdf_document
+---
+
+# Introduction
+
+Data Source: [Employee Attrition MANOVA](https://www.kaggle.com/code/duyguatasever/employee-attrition-manova/data)
+
+In Human Resource field, factors that determine its successness is the abililty to attracting and retaining top talent. As an HR personalia, it is my task to determine what factor contribute to employee satisfaction in doing their job.
+
+This dataset consist of employee that either still stay at the company and already leaving given the job satisfaction. The goal is to identify and improve these factor so that it may improve HR performance in terms of gathering top talent and increase the retention by analyzing what factors affecting job satisfaction
+
+```{r}
+attr_raw = read.csv("D:/Kuliah/semester_1/Statistika dan Analisis Multivariat/Pertemuan 15/Tugas/employee_attrition_train.csv")
+```
+
+```{r}
+head(attr_raw)
+```
+
+```{r}
+str(attr_raw)
+```
+
+## Descriptive Statistics
+
+```{r}
+summary(attr_raw)
+```
+
+## Check for Null Value
+
+```{r}
+lapply(attr_raw, function(x) {length(which(is.na(x)))})
+```
+
+```{r}
+attr_na = as.data.frame(na.omit(attr_raw))
+lapply(attr_na, function(x) {length(which(is.na(x)))})
+```
+
+## Drop Column with Uniform Value
+
+```{r}
+attr_dc = attr_na[c(-9,-22,-27)]
+
+head(attr_dc)
+```
+
+## Data Visualization
+
+```{r}
+library(funModeling)
+freq(attr_dc$Attrition)
+```
+
+Here we see greatly imbalance class that favor employee that still on company
+
+```{r}
+freq(attr_dc$JobRole)
+```
+
+Here, there are also imbalance class. Most of the employee working as Sales Executive and Research Scientist.
+
+```{r}
+freq(attr_dc$JobSatisfaction)
+```
+
+Here, most of the employee satisfied with their job on the company, but nonetheless, there are lots of dissatisfaction.
+
+```{r}
+freq(attr_dc$Gender)
+```
+
+Here, the gender in this company is quite balance with male dominating
+
+```{r}
+freq(attr_na$MaritalStatus)
+```
+
+Here, we see that majority of the employee are married. There is also unknown status.
+
+Bar plot of count education field in terms of gender
+```{r}
+library(dplyr)
+#install.packages("ggthemes")
+library(ggthemes)
+
+attr_dc %>%
+  count(Gender, EducationField)%>%
+  ggplot(aes(x=Gender, y=n, fill=EducationField))+
+  geom_bar(stat='identity', position='dodge', col='black')+
+  theme_hc()+
+  scale_fill_hc('darkunica')+
+  labs(x='', y='', fill='Education Field')+
+  geom_text(aes(label=n), position=position_dodge(width=1), vjust=-5)
+```
+
+Here, we knew that male and female employee has same ranking in terms of their job respectively, and woman is consistently fall a little bit in terms of frequencies
+
+Therefore the ranking is
+1. 
+
+```{r}
+library("rstatix")
+
+attr_dc%>%
+  group_by(JobRole) %>%
+  get_summary_stats(Age, DailyRate, MonthlyIncome, type="mean_sd")
+```
+
+```{r}
+attr_dc %>%
+  group_by(JobRole) %>%
+  summarise(N=n())
+```
+
+There is an imbalance value within job role, this may cause deviations in MANOVA basic assumptions, so here, lets focus on JobRole that similar
+
+```{r}
+library(dplyr)
+attr_im = attr_dc%>%
+  filter (JobRole %in% c("Healthcare Representative", "Manager", "Manufacturing Director", "Research Director", "Sales Representative"))
+
+unique(attr_im$JobRole)
+```
+
+```{r}
+levels(attr_im$Education)<-c("Below College","College","Bachelor", "Master", "Doctor")
+levels(attr_im$EnvironmentSatisfaction)<-c("Low","Medium", "High", "Very High")
+levels(attr_im$JobInvolvement)<- c("Low","Medium", "High", "Very High")
+levels(attr_im$JobSatisfaction)<-c("Low","Medium", "High", "Very High")
+levels(attr_im$PerformanceRating)<-c("Low","Good", "Excellent", "Outstanding")
+levels(attr_im$RelationshipSatisfaction)<-c("Low","Medium", "High", "Very High")
+levels(attr_im$WorkLifeBalance)<-c("Bad","Good", "Better", "Best")
+```
+
+```{r}
+attr_im$Attrition<- as.factor(attr_im$Attrition)
+attr_im$BusinessTravel<- as.factor(attr_im$BusinessTravel)
+attr_im$Department<-as.factor(attr_im$Department)
+attr_im$EducationField<-as.factor(attr_im$EducationField)
+attr_im$Gender<-as.factor(attr_im$Gender)
+attr_im$JobRole<-as.factor(attr_im$JobRole)
+attr_im$MaritalStatus<-as.factor(attr_im$MaritalStatus)
+attr_im$OverTime<-as.factor(attr_im$OverTime)
+attr_im$Education<-as.factor(attr_im$Education)
+attr_im$EnvironmentSatisfaction<- as.factor(attr_im$EnvironmentSatisfaction)
+attr_im$JobInvolvement<- as.factor(attr_im$JobInvolvement)
+attr_im$JobSatisfaction<- as.factor(attr_im$JobSatisfaction)
+attr_im$RelationshipSatisfaction<- as.factor(attr_im$RelationshipSatisfaction)
+attr_im$PerformanceRating<- as.factor(attr_im$PerformanceRating)
+attr_im$WorkLifeBalance<- as.factor(attr_im$WorkLifeBalance)
+```
+
+
+```{r}
+head(attr_im)
+```
+
+## Explore data profile after filtering
+
+```{r}
+attr_im %>%
+  group_by(JobSatisfaction) %>%
+  summarise(N = n())
+```
+
+```{r}
+attr_im %>%
+  group_by(JobSatisfaction)%>%
+  summarise(N =n())
+```
+
+```{r}
+plot_num(attr_im)
+```
+
+```{r}
+attr_im %>%
+  group_by(JobRole)%>%
+  get_summary_stats(Age, DailyRate, MonthlyIncome, type="mean_sd")
+```
+
+```{r}
+attr_im %>%
+  group_by(JobSatisfaction)%>%
+  get_summary_stats(Age, DailyRate, MonthlyIncome, type="mean_sd")
+```
+
+
+```{r}
+str(attr_im$JobInvolvement)
+```
+
+## MANOVA
+
+### One Way Manova
+
+#### Inspect Based on Job Satisfaction
+
+Assumptions:
+
+1. Multivariate normality
+
+2. Equality of intergroup variance covariance matrix
+
+So here, we first examine multivariate normality assumption
+
+
+**Hypotheses:**
+
+H0: The distribution of the data conforms to the multivariate normal distribution
+
+H1: The distribution of the data does not fit the multivariate normal distribution
+
+```{r}
+attr_im %>%
+  select(Age, DistanceFromHome, MonthlyRate)%>%
+  mshapiro_test()
+```
+
+Since the p-value >0.05, H0 is accepted. The data fit the multivariate normal distribution
+
+Next, we examining the assumption of homogeneity of variance covariance metrics using box_m
+
+
+**Hypothesis:**
+
+H0 : the variance covariance matrices between the groups are equal
+
+H1 : The variance and covariance matrices between the groups are not equal
+
+
+```{r}
+box_m(attr_im[,c("Age", "DistanceFromHome", "MonthlyRate")], attr_im$JobSatisfaction)
+```
+
+Since the p-value is > 0.05, Ho Hypothesis is accepted, therefore the variance covariance matrices between groups are equal.
+
+Next, lets examine the data using levene test, here, we examine whether the variances between the groups are equal.
+
+
+**Hypotheses :**
+
+H0 : The variance between groups is equal
+
+H1 : The variance between groups is not equal
+
+```{r}
+levene_test(Age~JobSatisfaction, data=attr_im, center=mean)
+```
+
+Since the p-value is >0.05, H0 hypotheses is accepted, meaning that the variance between groups is equal
+
+
+Once again we do levene test for DistanceFromHome
+
+
+**Hypotheses :**
+
+H0 : The variance between groups is equal
+
+H1 : The variance between groups is not equal
+
+```{r}
+levene_test(DistanceFromHome~JobSatisfaction, data=attr_im, center=mean)
+```
+
+Since the p-value is >0.05, H0 hypotheses is accepted, meaning that the variance between groups is equal
+
+Last, we do levene test for MonthlyRate
+
+
+**Hypotheses :**
+
+H0 : The variance between groups is equal
+
+H1 : The variance between groups is not equal
+
+```{r}
+levene_test(MonthlyRate~JobSatisfaction, data=attr_im, center=mean)
+```
+
+Since the p-value is >0.05, H0 hypotheses is accepted, meaning that the variance between groups is equal
+
+Therefore, this has confirming that all dependent variables are having equal variance between groups of independent variable
+
+Calculate mean Age for each class in JobSatisfaction
+```{r}
+means_job_age = aggregate(attr_im$Age , list(attr_im$JobSatisfaction), mean)
+
+means_job_age
+```
+
+```{r}
+means_job_distance = aggregate(attr_im$DistanceFromHome, list(attr_im$JobSatisfaction), mean)
+
+means_job_distance
+```
+
+
+```{r}
+means_job_rate = aggregate(attr_im$MonthlyRate, list(attr_im$JobSatisfaction), mean)
+
+means_job_rate
+```
+
+Plotting job satisfaction by age
+```{r}
+library(gplots)
+plotmeans(attr_im$Age~ attr_im$JobSatisfaction, xlab="Job Satisfaction", ylab="Age", main="Mean Plot with 95% CI")
+```
+
+Here, we can say that age more or less affecting job satisfaction, the older the employee are, they more likely to have higher job satisfaction
+
+```{r}
+plotmeans(attr_im$DistanceFromHome~ attr_im$JobSatisfaction, xlab="Job Satisfaction", ylab="Distance from Home", main="Mean Plot with 95% CI")
+```
+
+Here, we could say that the farther the distance from home, employee tend to have higher job satisfaction, this fact indeed seems to doesnt allign well since employee that closer to working place usually tend to have better job satisfaction, a weird one indeed. 
+
+```{r}
+ggplot(attr_im, aes(x = DistanceFromHome)) +
+  geom_histogram(fill = "white", colour = "black") +
+  facet_grid(JobSatisfaction ~ ., scales = "free")
+```
+
+If we looking further to the Age distribution for each Job Satisfaction, we can clearly see that the distribution are similar, therefore it is assumed that Distance From Home doesnt affect job satisfaction. But lets pursue further first
+
+```{r}
+plotmeans(attr_im$MonthlyRate~ attr_im$JobSatisfaction, xlab="Job Satisfaction", ylab="MonthlyRate", main="Mean Plot with 95% CI")
+```
+
+Here, we could see that accross Job Satisfaction, there is no significant different in terms of MonthlyRate but there is tendenct if the monthly rate is higher, it is more likely that employee have more job satisfaction.
+
+#### Peek Age, Distance from Home, and Monthly Rate based on Job Role
+
+```{r}
+plotmeans(attr_im$Age~ attr_im$JobRole, xlab="Job Role", ylab="Age", main="Mean Plot with 95% CI")
+```
+
+```{r}
+plotmeans(attr_im$DistanceFromHome~ attr_im$JobRole, xlab="Job Role", ylab="Distance from Home", main="Mean Plot with 95% CI")
+```
+
+```{r}
+plotmeans(attr_im$MonthlyRate~ attr_im$JobRole, xlab="Job Role", ylab="Monthly Rate", main="Mean Plot with 95% CI")
+```
+
+
+### MANOVA
+```{r}
+job_manova = manova(cbind(Age, DistanceFromHome, MonthlyRate)~JobSatisfaction, data=attr_im)
+
+summary(job_manova, test="Wilks")
+```
+
+**Hypotheses:**
+
+H0: There is no significant difference between the groups in terms of the dependent variable
+
+H1: There is significant difference between the groups in terms of the dependent variable
+
+```{r}
+summary.aov(job_manova)
+```
+
+Since the p-value are >0.008, the H0 hypothesis is accepted meaning that there are no significant difference between groups in terms of dependent variables
+
+**Multiple Comparison**
+
+for the age variable:
+
+
+**Hypothesis**
+
+H0: There is no significant difference between the variables
+
+H1: There is a significant difference between the variables
+
+```{r}
+tatmin_aov <- aov(Age ~ JobSatisfaction, data =attr_im)
+TukeyHSD(tatmin_aov, "JobSatisfaction")
+```
+
+Since the p-value >0.05, the H0 is accepted so there is no statistically significance different
+
+for the DistanceFromHome variable:
+
+
+**Hypothesis**
+
+H0: There is no significant difference between the variables
+
+H1: There is a significant difference between the variables
+
+```{r}
+tatmin_aov <- aov(DistanceFromHome ~ JobSatisfaction, data =attr_im)
+TukeyHSD(tatmin_aov, "JobSatisfaction")
+```
+
+Since the p-value >0.05, the H0 is accepted so there is no statistically significance different
+
+for the MonthlyRate variable:
+
+
+**Hypothesis**
+
+H0: There is no significant difference between the variables
+
+H1: There is a significant difference between the variables
+
+```{r}
+tatmin_aov <- aov(MonthlyRate ~ JobSatisfaction, data =attr_im)
+TukeyHSD(tatmin_aov, "JobSatisfaction")
+```
+
+Since the p-value >0.05, the H0 is accepted so there is no statistically significance different
+
+From the analysis that involve
+
+- Dependent Variables: Age, MonthlyRate, and DistanceFromHome
+- Independent Variable: Job Satisfaction
+
+Job satisfaction doesnt being affected by Age, Monthly Rate, nor Distance From Home
+

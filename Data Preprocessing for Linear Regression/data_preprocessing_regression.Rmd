@@ -1,0 +1,581 @@
+---
+title: "Tugas Statistika Pertemuan 9"
+output: html_document
+---
+
+## Load Dataset
+```{r}
+library(readxl)
+library(dplyr)
+
+# Load HBAT Dataset
+df_hbat_raw = read_excel("D:/Kuliah/Semester 1/Statistika dan Analisis Multivariat/Pertemuan 9/Multivariate_Data_Analysis_7e_Datasets_EXCEL.xlsx", sheet = "HBAT")
+
+#Rename Columns
+df_hbat = df_hbat_raw %>% rename("customer_type"="X1",
+                                "industry_type"="X2",
+                                "firm_size"="X3",
+                                "region"="X4",
+                                "distribution_system"="X5",
+                                "product_quality"="X6",
+                                "ecommerce_activities_website"="X7",
+                                "technical_support"="X8",
+                                "complaint_resolution"="X9",
+                                "advertising"="X10",
+                                "product_line"="X11",
+                                "salesforce_image"="X12",
+                                "competitive_pricing"="X13",
+                                "warranty_and_claims"="X14",
+                                "new_products"="X15",
+                                "ordering_and_billing"="X16",
+                                "price_flexibility"="X17",
+                                "delivery_speed"="X18",
+                                "satisfaction"="X19",
+                                "likelihood_of_recommendation"="X20",
+                                "likelihood_of_future_purchase"="X21",
+                                "current_purchase_or_usage_level"="X22",
+                                "consider_strategic_alliance_or_partnership_in_future"="X23"
+                                )
+
+df_hbat = as.data.frame(df_hbat)
+
+# Print 6 Data
+head(df_hbat)
+
+# Load HBAT_MISSING
+df_hbatm_raw = read_excel("D:/Kuliah/Semester 1/Statistika dan Analisis Multivariat/Pertemuan 9/Multivariate_Data_Analysis_7e_Datasets_EXCEL.xlsx", sheet = "HBAT_MISSING")
+```
+
+
+## Eksaminasi Grafis
+### Univariate Profiling: Histogram
+
+Examining the shape of the distribution
+Source: <https://www.tutorialspoint.com/how-to-create-histogram-of-all-columns-in-an-r-data-frame#:~:text=More%20Detail-,To%20create%20histogram%20of%20all%20columns%20in%20an%20R%20data,single%20line%20code%20as%20hist.>
+```{r}
+#install.packages("Hmisc")
+library(Hmisc)
+
+## Drop Non Metric Column
+df_hbat_v = df_hbat[c(-1, -2, -3, -4, -5, -6, -24)]
+df_hbat_nonmetric = df_hbat[c(2,3,4,5,6,24)]
+
+head(df_hbat_v)
+head(df_hbat_nonmetric)
+
+hist.data.frame(df_hbat_v)
+```
+
+From the histogram, most of the graph approaching normal distribution, but some graph distribution may slightly off like likelihood of future purchase, delivery speed, price flexibility, salesforce image, and competitive pricing.
+
+
+### Boxplot
+
+Source: <https://stackoverflow.com/questions/11346880/r-plot-multiple-box-plots-using-columns-from-data-frame>
+```{r}
+library(reshape2)
+library(ggplot2)
+
+meltData <- melt(df_hbat_v)
+p <- ggplot(meltData, aes(factor(variable), value)) 
+p + geom_boxplot() + facet_wrap(~variable, scale="free")
+
+## Penanganan Missing Value
+```
+
+From the boxplot, there exist some of outlier in ecommerce activities website, salesforce image, ordering and billing, delivery speed, and likelihood of recommendation.
+
+### Bivariate Profiling: Scatter Plot
+
+Examining the relationship between variables
+Source: <https://stackoverflow.com/questions/26623303/is-there-any-package-and-function-that-produce-this-image-in-r>
+```{r}
+library(psych)
+pairs.panels(df_hbat_v[,-15], hist.col="white", scale=TRUE)
+
+```
+
+```{r}
+print(cor(df_hbat_v[,c(1,2,3,4,5,6,7,8.9,10,11,12,13,14,15,16)]))
+
+```
+
+From the scatterplot and correlation, there are certain variable combination that has strong correlation, and that is :
+
+- salesforce_image and ecommerce_activities_website
+- salesforce_image and advertising
+- ordering_and_billing and complaint_resolution
+- delivery_speed and complaint_resolution
+- satisfaction and complaint_resolution
+- complaint_resolution and product_line
+- ecommerce_activities_website and salesforce_image
+- advertising and salesforce_image
+- complaint_resolution and ordering and billing
+- delivery_speed and product_line
+- satisfaction and product_line
+- satisfaction and salesforce_image
+- delivery_speed and ordering_and_billing
+- delivery_speed and complaint_resolution
+- delivery_speed and salesforce_image
+- delivery_speed and ordering_and_billing
+- delivery_speed and satisfaction
+- satisfaction and complaint_resolution
+- satisfaction and product_line
+- satisfaction and salesforce_image
+- satisfaction and ordering_and_billing
+- satisfaction and delivery_speed
+- satisfaction and likelihood_of_recommendation
+- satisfaction and likelihood_of_future_purchase
+- likelihood_of_recommendation and satisfaction
+- likelihood_of_future_purchase and likelihood_of_recommendation
+- likelihood_of_future_purchase and satisfaction
+
+Later, it is recommended to drop certain column to avoid multicolinearity (where correlation >=0.5) in case of regression analysis by dropping:
+salesforce_image, complaint_resolution, delivery_speed, satisfaction, likelihood_of_future_purchase
+
+
+### Bivariate Profiling: Boxplot
+
+Examining Group DIfferences
+Source: <https://www.tutorialspoint.com/how-to-create-boxplot-for-multiple-categories-in-base-r>
+```{r}
+str(df_hbat)
+df_hbat_v_b = df_hbat[c(2,7,8)]
+head(df_hbat_v_b)
+
+boxplot(df_hbat_v_b$product_quality~df_hbat_v_b$customer_type)
+```
+In bivariate profiling, the use of boxplot is for telling us the variance difference of certain groups in the dataset. Here we take a little look at measuring product quality by customer type and as the graph depict, there is noticable different in how customer giving the product quality score.
+
+
+```{r}
+boxplot(df_hbat_v_b$ecommerce_activities_website~df_hbat_v_b$customer_type)
+
+```
+Next, we take a look at measuring ecommerce activity website by customer type. There are hardly any different for each of the customer type in regards with ecommerce activities website.
+
+### Multivariate Profiling: Faceting
+```{r}
+library(ggplot2)
+str(df_hbat)
+
+#likelihood of recommendation by customer type and distribution system
+
+# plot salary histograms by rank
+ggplot(df_hbat, aes(x = likelihood_of_recommendation)) +
+  geom_histogram(fill = "cornflowerblue",
+                 color = "white") +
+  facet_grid(distribution_system~customer_type) +
+  labs(title = "Likelihood of recommendation by customer type and distribution system")
+
+```
+For the multivariate profiling, it is measure the likelihood of recommendation by customer type and distribution system. Some example insight can be derived is that customer type 1 with distribution system 0 tend to not recommending.
+
+## Penanganan Missing Values
+For the record, the data doesn't have proper column name, this make the analysis much harder since there are no indicator of what the variable meant are.
+
+### Data Preprocessing
+```{r}
+df_hbatm = df_hbatm_raw
+
+# Replace . with NA 
+df_hbatm[df_hbatm=="."]<- NA
+df_hbatm = as.data.frame(df_hbatm)
+
+# Print 6 Data
+str(df_hbatm)
+
+num_col = c(2,3,4,5,6,7,8,9,10)
+
+df_hbatm_char = as.data.frame(df_hbatm[c(11,12,13,14,15)])
+
+df_hbatm_num = as.data.frame(apply(df_hbatm[,num_col],2, as.numeric))
+
+df_hbatm = data.frame(df_hbatm_num, df_hbatm_char)
+
+str(df_hbatm)
+```
+### Missing data with finalfit
+
+Source; <https://cran.r-project.org/web/packages/finalfit/vignettes/missing.html>
+
+Examine data with ff_glimpse describe the summary of missing data
+```{r}
+#install.packages("naniar")
+#install.packages("finalfit")
+library(finalfit)
+library(naniar)
+library(dplyr)
+#df_hbatm = df_hbatm[c(2,3,4,5,6)]
+#df_hbatm = df_hbatm[20,]
+
+explanatory = c("V1","V2","V3","V4","V5","V6","V7","V8","V9","V10","V11","V12","V14")
+dependent = c("V13")
+
+df_hbatm %>% 
+  ff_glimpse(dependent, explanatory)
+```
+From this table it can be seen that all variables contain null values, the occurence of null for each column can be seen from missing_n, and the respective percentage from missing_percent. Variable that has the most missing values is V1 with 49 missing values and 30% of the data missing.
+
+Identify missing values in each variables by creating plot for detecting pattern of missingness
+```{r}
+df_hbatm %>% missing_plot()
+```
+From the pattern produce, it is more likely that missing value are having less occurence from V1 to V14. Since there are no information regarding the column context, we cannot derive any further analysis from this graph.
+
+
+```{r}
+df_hbatm %>% missing_pattern(dependent, explanatory)
+```
+Describing the pattern of missingness between variables. 0 indicating missing data and 1 is non missing data. and the missing data is group by the pattern occured. The most left value is the amount of the missing value rows that has the same pattern and the most right is the amount of missing value per pattern it has. The bottom value represent the sum of missing value for each and all varables.
+
+From the visualization, the occurence of missing value tend to decrease if the pattern containing more missing values.
+
+Check for assotiation between missing data and observer data
+```{r}
+df_hbatm %>%
+  missing_pairs(dependent, explanatory, position = "fill")
+```
+Here is the visualization of distribution for non missing data and missing data per variables respectively. Information that can be derived from this graph for example: V4 value that correspond to missing value of V14 has median approximately 6.5 in terms of the V4 value.
+
+### Another basic missingness summaries
+
+miss_var_summary: return the number and the percentage of missing in each variable 
+```{r}
+miss_var_summary(df_hbatm)
+```
+
+
+miss_case_summary: return the number and the percentage of missing in each case (row)
+```{r}
+miss_case_summary(df_hbatm)
+
+```
+
+Missing data in tabulation, calculate the number of missing data in each variable and create tabulation to count how many variables that has certain amount of missing data.
+```{r}
+miss_var_table(df_hbatm)
+```
+
+Same as above but based on per row
+```{r}
+miss_case_table(df_hbatm)
+```
+
+In brief conclusion, the current best way to counter the missing values is by dropping the row contain missing values, since there are no context in the columns 
+
+```{r}
+df_hbatm_dna = data.frame(na.omit(df_hbatm))
+
+df_hbatm_dna
+
+```
+
+
+## Penanganan Outliers
+
+Source: <https://www.r-bloggers.com/2016/12/outlier-detection-and-treatment-with-r/>
+### Penanganan Outliers Univariat
+
+From the boxplot, there exist some of outlier in ecommerce activities website, salesforce image, ordering and billing, delivery speed, and likelihood of recommendation. Therefore, lets look deeper and approach the outlier value:
+```{r}
+library(reshape2)
+meltData <- melt(df_hbat_v)
+p <- ggplot(meltData, aes(factor(variable), value)) 
+p + geom_boxplot() + facet_wrap(~variable, scale="free")
+
+df_hbat_uo = df_hbat_v
+#df_hbat_uo <- as.data.frame(scale(df_hbat_uo))
+
+#Ecommerce Activities Website
+outlier_values = boxplot.stats(df_hbat_uo$ecommerce_activities_website)$out
+boxplot(df_hbat_uo$ecommerce_activities_website, main="Ecommerce Activities Website", boxwex=0.1)
+mtext(paste("Outliers: ", paste(outlier_values, collapse=", ")), cex=0.6)
+
+```
+From the ecommerce activities website, the outliers are in upper distribution. This may indicate that the customer very actively browse the website, therefore the outliers remain
+
+```{r}
+#Salesforce image
+outlier_values = boxplot.stats(df_hbat_uo$salesforce_image)$out
+boxplot(df_hbat_uo$salesforce_image, main="Salesforce Image", boxwex=0.1)
+mtext(paste("Outliers: ", paste(outlier_values, collapse=", ")), cex=0.6)
+
+```
+Here, the salesforce image may related to reputation, therefore there is possible to a salesforce to have a very good reputation therefore the outliers remain
+
+
+```{r}
+#Ordering and Billing
+outlier_values = boxplot.stats(df_hbat_uo$ordering_and_billing)$out
+boxplot(df_hbat_uo$ordering_and_billing, main="Ordering and Billing", boxwex=0.1)
+mtext(paste("Outliers: ", paste(outlier_values, collapse=", ")), cex=0.6)
+
+```
+Here, the ordering and billing also similar, there is posibility of customer purchasing in a very few amount of order and bill, therefore the outlier remain.
+
+
+```{r}
+#Delivery Speed
+outlier_values = boxplot.stats(df_hbat_uo$delivery_speed)$out
+boxplot(df_hbat_uo$delivery_speed, main="Delivery Speed", boxwex=0.1)
+mtext(paste("Outliers: ", paste(outlier_values, collapse=", ")), cex=0.6)
+
+```
+Here the delivery speed can be very slow also, therefore the outlier remain
+
+```{r}
+#Likelihood of Recommendation
+outlier_values = boxplot.stats(df_hbat_uo$likelihood_of_recommendation)$out
+boxplot(df_hbat_uo$likelihood_of_recommendation, main="Likelihood of Recommendation", boxwex=0.1)
+mtext(paste("Outliers: ", paste(outlier_values, collapse=", ")), cex=0.6)
+
+```
+Likelihood of recommendation outlier are also rational, therefore the outliers remain.
+
+So in summary, from univariate outlier, there are no further process to encounter the outlier
+
+### Penanganan Outliers Bivariat
+```{r}
+library(psych)
+df_hbat_bo = df_hbat_uo
+#df_hbat_bo <- as.data.frame(scale(df_hbat_bo))
+
+pairs.panels(df_hbat_bo[,-15], hist.col="white", scale=TRUE)
+
+str(df_hbat_bo)
+
+
+boxplot(likelihood_of_recommendation ~ product_quality, data=df_hbat_bo, main="Likelihood of Recommendation vs Product Quality")
+```
+
+From the graph above, there are outlier in product quality +-8.7 and likelihood of recommendation +-4.8, also product quality +-98 and likelihood of recommendation +-6.9, this may be caused by customer who buy rate the product quality high but likely not going or hardly want to promote it, this kind of outlier is also normal therefore the outlier may stay in. 
+
+### Penanganan Outliers Multivariat
+```{r}
+df_hbat_mo = df_hbat_bo
+mod <- lm(likelihood_of_future_purchase ~ ., data=df_hbat_mo)
+cooksd <- cooks.distance(mod)
+
+plot(cooksd, pch="*", cex=2, main="Influential Obs by Cooks distance")+  # plot cook's distance
+  abline(h = 4*mean(cooksd, na.rm=T), col="red")+  # add cutoff line
+  text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>4*mean(cooksd, na.rm=T),names(cooksd),""), col="red")  # add labels
+```
+From this graph, there exist outliers in row number 35, 52, 63, 76, and 90. Therefore we drop those row
+
+```{r}
+df_hbat_mo = df_hbat_mo[-c(35,52,63,76,90),]
+df_hbat_nonmetric = df_hbat_nonmetric[-c(35,52,63,76,90),]
+dim(df_hbat_mo)
+```
+
+
+## Uji Normalisasi
+
+Source: <https://rpubs.com/maj_21m/835949>
+```{r}
+library(tidyverse)
+#install.packages("rstatix")
+library(rstatix)
+
+df_hbat_norm = df_hbat_mo
+
+str(df_hbat_norm)
+
+all_var = names(df_hbat_norm)
+
+df_hbat_norm %>% 
+  shapiro_test(all_var)
+```
+Here, the variables ecommerce activities website, ordering and billing, price flexibility, product quality and salesforce image has p-value less than 0.05, therefore those variables NOT follow a normal distribution.
+
+### Q-Q Plot
+```{r}
+library(ggplot2)
+#install.packages("qqplotr")
+library(qqplotr)
+library(gridExtra)
+p1<-ggplot(data = df_hbat_norm, mapping = aes(sample = ecommerce_activities_website)) +
+  stat_qq_band(fill="blue",alpha = 0.15) +
+  stat_qq_line(col="blue") +
+  stat_qq_point(col="black",size=1)+
+  labs(title = "ecommerce_activities_website")+theme_bw()
+
+p2<-ggplot(data = df_hbat_norm, mapping = aes(sample = ordering_and_billing)) +
+  stat_qq_band(fill="blue",alpha = 0.15) +
+  stat_qq_line(col="blue") +
+  stat_qq_point(col="black",size=1)+
+  labs(title = "ordering_and_billing")+theme_bw()
+
+p3<-ggplot(data = df_hbat_norm, mapping = aes(sample = price_flexibility)) +
+  stat_qq_band(fill="blue",alpha = 0.15) +
+  stat_qq_line(col="blue") +
+  stat_qq_point(col="black",size=1)+
+  labs(title = "price_flexibility")+theme_bw()
+
+p4<-ggplot(data = df_hbat_norm, mapping = aes(sample = product_quality)) +
+  stat_qq_band(fill="blue",alpha = 0.15) +
+  stat_qq_line(col="blue") +
+  stat_qq_point(col="black",size=1)+
+  labs(title = "product_quality")+theme_bw()
+
+p5<-ggplot(data = df_hbat_norm, mapping = aes(sample = salesforce_image)) +
+  stat_qq_band(fill="blue",alpha = 0.15) +
+  stat_qq_line(col="blue") +
+  stat_qq_point(col="black",size=1)+
+  labs(title = "salesforce_image")+theme_bw()
+
+p6<-ggplot(data = df_hbat_norm, mapping = aes(sample = competitive_pricing)) +
+  stat_qq_band(fill="blue",alpha = 0.15) +
+  stat_qq_line(col="blue") +
+  stat_qq_point(col="black",size=1)+
+  labs(title = "competitive_pricing")+theme_bw()
+
+# Arrange in a grid
+grid.arrange(p1,p2,p3,p4,p5,p6, ncol=3)
+```
+
+Density Plot
+```{r}
+p6<-ggplot(data=df_hbat_norm, aes(x = ecommerce_activities_website)) + 
+  geom_density(alpha = 0.15,fill="Purple")+
+  labs(title = "ecommerce_activities_website")+theme_bw()
+
+p7<-ggplot(data=df_hbat_norm, aes(x = ordering_and_billing)) + 
+  geom_density(alpha = 0.15,fill="blue")+
+  labs(title = "ordering_and_billing")+theme_bw()
+
+p8<-ggplot(data=df_hbat_norm, aes(x = price_flexibility)) + 
+  geom_density(alpha = 0.15,fill="blue")+
+  labs(title = "price_flexibility")+theme_bw()
+
+p9<-ggplot(data=df_hbat_norm, aes(x = product_quality)) + 
+  geom_density(alpha = 0.15,fill="blue")+
+  labs(title = "product_quality")+theme_bw()
+
+p10<-ggplot(data=df_hbat_norm, aes(x = salesforce_image)) + 
+  geom_density(alpha = 0.15,fill="blue")+
+  labs(title = "salesforce_image")+theme_bw()
+
+p11<-ggplot(data=df_hbat_norm, aes(x = competitive_pricing)) + 
+  geom_density(alpha = 0.15,fill="blue")+
+  labs(title = "competitive_pricing")+theme_bw()
+
+grid.arrange(p7,p8,p9,p10,p11, ncol=3)
+```
+
+Histogram
+```{r}
+p12<-ggplot(data=df_hbat_norm, aes(x=ecommerce_activities_website)) +
+  geom_histogram(aes(x=ecommerce_activities_website, y=..density..), bins=50,fill="blue",alpha = 0.15) +
+  stat_function(fun=dnorm, args = list(mean=mean(df_hbat_norm$ecommerce_activities_website),
+                                       sd=sd(df_hbat_norm$ecommerce_activities_website)), color="blue",size=1)+
+  labs(title = "ecommerce_activities_website")+theme_bw()
+
+p13<-ggplot(data=df_hbat_norm, aes(x=ordering_and_billing)) +
+  geom_histogram(aes(x=ordering_and_billing, y=..density..), bins=50,fill="blue",alpha = 0.15) +
+  stat_function(fun=dnorm, args = list(mean=mean(df_hbat_norm$ordering_and_billing),
+                                       sd=sd(df_hbat_norm$ordering_and_billing)), color="blue",size=1)+
+  labs(title = "ordering_and_billing")+theme_bw()
+
+p14<-ggplot(data=df_hbat_norm, aes(x=price_flexibility)) +
+  geom_histogram(aes(x=price_flexibility, y=..density..), bins=50,fill="blue",alpha = 0.15) +
+  stat_function(fun=dnorm, args = list(mean=mean(df_hbat_norm$price_flexibility),
+                                       sd=sd(df_hbat_norm$price_flexibility)), color="blue",size=1)+
+  labs(title = "price_flexibility")+theme_bw()
+
+p15<-ggplot(data=df_hbat_norm, aes(x=product_quality)) +
+  geom_histogram(aes(x=product_quality, y=..density..), bins=50,fill="blue",alpha = 0.15) +
+  stat_function(fun=dnorm, args = list(mean=mean(df_hbat_norm$product_quality),
+                                       sd=sd(df_hbat_norm$product_quality)), color="blue",size=1)+
+  labs(title = "product_quality")+theme_bw()
+
+p16<-ggplot(data=df_hbat_norm, aes(x=salesforce_image)) +
+  geom_histogram(aes(x=salesforce_image, y=..density..), bins=50,fill="blue",alpha = 0.15) +
+  stat_function(fun=dnorm, args = list(mean=mean(df_hbat_norm$salesforce_image),
+                                       sd=sd(df_hbat_norm$salesforce_image)), color="blue",size=1)+
+  labs(title = "salesforce_image")+theme_bw()
+
+p17<-ggplot(data=df_hbat_norm, aes(x=competitive_pricing)) +
+  geom_histogram(aes(x=competitive_pricing, y=..density..), bins=50,fill="blue",alpha = 0.15) +
+  stat_function(fun=dnorm, args = list(mean=mean(df_hbat_norm$competitive_pricing),
+                                       sd=sd(df_hbat_norm$competitive_pricing)), color="blue",size=1)+
+  labs(title = "competitive_pricing")+theme_bw()
+
+grid.arrange(p12,p13,p14,p15,p16,p17,ncol=3)
+```
+From this graph, it is known that ecommerce_activities_website, ordering_and_billing, and salesforce_image tend to have high peaks (kurtosis). Product_quality is more likely has two different distributions since it has two peaked, and price flexibility looks like a slightly off to the left (positive skew).
+
+Therefore, we need to fixing the skewness accordingly
+
+Source: <https://www.datanovia.com/en/lessons/transform-data-to-normal-distribution-in-r/>
+```{r}
+# Sqrt Transformation
+df_hbat_norm$ecommerce_activities_website = sqrt(df_hbat_norm$ecommerce_activities_website)
+df_hbat_norm$price_flexibility = sqrt(df_hbat_norm$price_flexibility)
+df_hbat_norm$salesforce_image = sqrt(df_hbat_norm$salesforce_image)
+
+# Sqrt(max(x+1)-x) Transformation
+df_hbat_norm$ordering_and_billing = sqrt(max(df_hbat_norm$ordering_and_billing+1)-df_hbat_norm$ordering_and_billing)
+df_hbat_norm$competitive_pricing = sqrt(max(df_hbat_norm$competitive_pricing+1)-df_hbat_norm$competitive_pricing)
+df_hbat_norm$product_quality = sqrt(max(df_hbat_norm$product_quality+1)-df_hbat_norm$product_quality)
+
+df_hbat_norm %>% 
+  shapiro_test(all_var)
+
+```
+Here the normalisation has been done using square root method, but for product_quality, the p-value still < 0.05 regarding the operation has been done like log transformation and inverse transformation 
+
+## Uji Korelasi
+```{r}
+df_hbat_cor = df_hbat_norm[c(-15)]
+
+#install.packages("corrplot")
+library(psych)
+library(corrplot)
+
+
+corrplot(cor(df_hbat_cor, df_hbat_cor),
+         method = c("number"), 
+         #bg = "grey10",
+         addgrid.col = "gray50",
+         tl.cex=0.5,
+         number.cex=0.5)
+
+```
+Later, it is recommended to drop certain column to avoid multicolinearity (where correlation >=0.5) in case of regression analysis by dropping:
+salesforce_image, complaint_resolution, delivery_speed, satisfaction, likelihood_of_future_purchase, warranty_and_claims, product_quality, current_purchase_or_usage_level
+
+```{r}
+df_hbat_cor = df_hbat_cor[c(-1, -7, -4, -9, -13, -14, -15, -16)]
+
+corrplot(cor(df_hbat_cor, df_hbat_cor),
+         method = c("number"), 
+         #bg = "grey10",
+         addgrid.col = "gray50",
+         tl.cex=0.5,
+         number.cex=0.5)
+```
+
+## Uji Linieritas dan Uji Homoskesdastisitas
+```{r}
+df_hbat_lin = df_hbat_cor
+
+df_hbat_lin = data.frame(df_hbat_lin,df_hbat_norm$likelihood_of_recommendation)
+head(df_hbat_lin)
+
+model = lm(df_hbat_norm.likelihood_of_recommendation~. , data = df_hbat_lin)
+model
+summary(model)
+```
+
+```{r}
+#install.packages("ggfortify")
+library(ggfortify)
+autoplot(model)
+```
+
+The description are available here: <http://www.sthda.com/english/articles/39-regression-model-diagnostics/161-linear-regression-assumptions-and-diagnostics-in-r-essentials/#linearity-of-the-data>
+
+
+

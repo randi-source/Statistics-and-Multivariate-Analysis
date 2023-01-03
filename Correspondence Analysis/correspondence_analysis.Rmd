@@ -1,0 +1,414 @@
+---
+title: "Presentasi CA"
+output: ioslides_presentation
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Ref:
+
+- <https://cran.r-project.org/web/packages/FactoMineR/FactoMineR.pdf>
+- <http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/113-ca-correspondence-analysis-in-r-essentials/>
+- <https://www.geeksforgeeks.org/contingency-tables-in-r-programming/>
+
+Install Libraries
+```{r}
+#install.packages("FactoMineR")
+#install.packages("factoextra")
+library(FactoMineR) # For CA analysis
+library(factoextra) # For CA visualization
+```
+
+Load Dataset
+```{r}
+data(housetasks)
+housetasks
+```
+
+
+
+```{r}
+#install.packages("gplots")
+library(gplots)
+# 1. Convert tht data as a table
+dt = as.table(as.matrix(housetasks))
+# 2. Graph
+balloonplot(t(dt), main = "housetasks", xlab="", ylab="",
+            label = FALSE, show.margins=FALSE)
+
+```
+
+Use Chi-square test to evaluate whether there is a significant dependence between row and column categories:
+```{r}
+chisq = chisq.test(dt)
+chisq
+
+```
+
+# Symmetric Biplot
+
+In symmetric biplot, the goal is to do correspondence analysis which includes columns and rows that being represented in the same space using principal coordinates. The coordinates represent the row and column profile. In symmetric biplot, only the distance between row points or the distance between column points can really be interpreted.
+
+Compute CA
+```{r}
+vis_ca = CA(dt, ncp = 5, graph = TRUE)
+vis_ca
+```
+
+
+```{r}
+print(vis_ca)
+```
+
+Extract the eigenvalues/variances retained by each dimension (axis)
+```{r}
+get_eigenvalue(vis_ca)
+```
+
+Visualize the eigenvalues
+```{r}
+fviz_eig(vis_ca)
+```
+
+Extract the results for rows and columns, respectively
+```{r}
+get_ca_row(vis_ca)
+get_ca_col(vis_ca)
+```
+
+Visualize the results for rows and columns
+```{r}
+fviz_ca_row(vis_ca)
+fviz_ca_col(vis_ca)
+```
+
+Make a biplot of rows and columns
+```{r}
+fviz_ca_biplot(vis_ca)
+
+```
+
+Statistical Significance, examining the association between row and column variables
+```{r}
+# Chi-sqiare statistics
+chi2 = 1944.5
+# Degree of Freedom
+df = (nrow(housetasks) -1)*(ncol(housetasks)-1)
+# P-value
+pval = pchisq(chi2, df=df, lower.tail=FALSE)
+pval
+```
+
+Eigenvalues / Variances, examine the eigenvalues to determine the number of axis to be considered
+```{r}
+library("factoextra")
+eig.val = get_eigenvalue(vis_ca)
+eig.val
+```
+
+Scree Plot
+```{r}
+fviz_screeplot(vis_ca, addlabels = TRUE, ylim = c(0,50))
+
+```
+
+Calculate an average eigenvalue above which the axis should be kept in the solution. 
+
+If the data were random, the expected value of the eigenvalue for each axis would be:
+```{r}
+1/(nrow(housetasks)-1)
+```
+
+Likewise, the average axis should account for:
+```{r}
+1/(ncol(housetasks)-1)
+```
+In terms of the 4 columns
+
+Any axis with a contribution larger than the maximum of these two percentages should be considered as important and included in the solution for the interpretation of the data.
+
+Draw screeplot with red dashed line specifying the average eigenvalue:
+```{r}
+fviz_screeplot(vis_ca)+
+  geom_hline(yintercept=33.33, linetype=2, color="red")
+
+```
+Since the average of eigenvalue around 33.3%, only choose the dimention that explain variances above 33.33, which are dimension 1 and 2
+
+Draw biplot of rows and columns variables with symetric plot
+```{r}
+fviz_ca_biplot(vis_ca, repel=TRUE)
+```
+
+rows are in blue point, and columns are in red point. The distance between any row points or column point gives a measure of their similarity (or dissimilarity). Row points with similar profile are closed on the factor map. The same holds true for column points
+
+#### Notes:
+
+- Symetric plot represents the row and column profiles simultaneously in a common space. In this case, only the distance between row points or the distance between column points can be really interpreted.
+
+- The distance between any row and column items is not meaningful! You can only make a general statements about the observed pattern.
+
+- In order to interpret the distance between column and row points, the column profiles must be presented in row space or vice-versa. This type of map is called asymmetric biplot
+
+## Graph of Row Variables
+
+Determine which row variables contribute the most in the definition of the different dimensions retained in the model.
+```{r}
+# Return a list containing the coordinates, the cos2, the contribution and the inertia of row variables:
+row = get_ca_row(vis_ca)
+row
+```
+
+### Coordinates
+```{r}
+# Coordinates of each row point in each dimention (1,2, and 3). Used to create the scatter plot
+head(row$coord)
+fviz_ca_row(vis_ca, col.row="steelblue", shape.row = 15)
+```
+
+It shows the relationship between row points
+
+- Rows with similar profile are grouped together
+- Negatively correlated rows are positioned on the opposites sides of the plot origin (opposed quadrants)
+- The distance between row points and the origin measures the quality of the row points on the factor map. 
+
+### Assess Cos2
+Assess displayed points in two dimension visualization
+```{r}
+# Quality of representation of rows
+row$cos2
+
+fviz_ca_row(vis_ca, col.row = "cos2",
+            gradient.cols = c("red","blue","green"),
+            repel = TRUE)
+```
+
+The cos2 mesures the degree of association between rows/columns and a particular axis. The values of the cos2 comprised between 0 and 1. the sum of the cost2 for rows on all the CA dimensions is equal to 1. If a row item is well represented by two dimensions, the sum of the cos2 is closed to 1, but for some row items, more than 2 dimentions are required to perfectly represent the data.
+
+Here, as we can see, official has a low score of cos2, this means we need to add another dimensions to increase the degree of associations.
+
+### Assess Contribution
+Inspect the contribution of rows (in %) to the definition of the dimensions
+```{r}
+# Contributions to the principal components
+head(row$contrib)
+
+```
+The row variables with larger value, contribute the most to the definition of the dimensions
+
+#### Notes:
+
+- Rows that contribute the most to Dim.1 and Dim.2 are the most important in explaining the variability in the data set.
+- Rows that do not contribute much to any dimension or that contribute to the last dimensions are less important.
+
+Show top 10 rows contributing to the dimensions:
+```{r}
+# Contributions of rows to dimension 1
+fviz_contrib(vis_ca, choice="row", axes=1, top = 10)
+# Contributions of rows to dimension 2
+fviz_contrib(vis_ca, choice="row", axes=2, top = 10)
+# Total contribution to dimension 1 and 2
+fviz_contrib(vis_ca, choice = "row", axes = 1:2, top = 10)
+```
+
+The red line indicates expected average value if the contributions were uniform. The calculation based from expected contribution value, under null hypotheses.
+
+Indicating most important row based on scatter plot:
+```{r}
+fviz_ca_row(vis_ca, col.row="contrib",
+            gradient.cols = c("red","blue","green"),
+            repel = TRUE)
+
+```
+
+## Graph of Column Variables
+
+Determine which row variables contribute the most in the definition of the different dimensions retained in the model.
+```{r}
+col = get_ca_col(vis_ca)
+col
+```
+
+
+### Assess Coordinates
+```{r}
+# Coordinates of column points
+head(col$coord)
+fviz_ca_col(vis_ca)
+```
+
+
+### Assess Contribution
+```{r}
+# Quality of representation
+head(col$cos2)
+fviz_ca_col(vis_ca, col.col = "cos2", 
+             gradient.cols = c("red","blue","green"),
+             repel = TRUE)
+```
+
+
+Show top 10 rows contributing to the dimensions:
+```{r}
+# Contributions of rows to dimension 1
+fviz_contrib(vis_ca, choice="col", axes=1)
+# Contributions of rows to dimension 2
+fviz_contrib(vis_ca, choice="col", axes=2)
+# Total contribution to dimension 1 and 2
+fviz_contrib(vis_ca, choice = "col", axes = 1:2)
+```
+
+# Contribution Biplot
+In symmetric biplot, it is difficult to know the most contribution points to the solution of the CA. therefore Michael Greenacre proposed a new scaling displayed which incorporate the contribution of points. The points that contributes very little to the solution, are close to the center of the biplot and are relatively unimportant to the interpretation
+
+Here the example to analyze the contributions of rows only
+```{r}
+fviz_ca_biplot(vis_ca, map="colgreen", arrow = c(TRUE, FALSE),
+               repel = TRUE)
+
+```
+This graph represent column as it is, but measure the contribution of the rows. The closer an arrow to axis, the greater the contibution of the row category on that axis relative to the other axis. if the arrow is halfway between the two axis, its row category contributes the same extent to the two axes.
+
+# Dimension Description
+
+There is an relatively easy approach to identify row and column points that are most associated with the principal dimensions. By utilizing this approach, row or column variables are sorted by their coordinates.
+
+```{r}
+# Dimension description
+vis_desc = dimdesc(vis_ca, axes = c(1,2))
+```
+
+
+```{r}
+# Description of dimension 1 by row points
+head(vis_desc[[1]]$row, 4)
+```
+
+```{r}
+# Description of dimension 1 by column points
+head(vis_desc[[1]]$col, 4)
+```
+
+```{r}
+# Description of dimension 2 by row points
+head(vis_desc[[2]]$row, 4)
+```
+
+```{r}
+# Description of dimension 2 by column points
+head(vis_desc[[2]]$row, 4)
+```
+
+# Asymmetric Biplot
+
+In accordance with the weakness of symmetric biplot which doesn't take into account column and rows to be interpreted in the same manner, there is assymetric biplot which used for interpreting distance between column points and row points. This approach should make sure that column profiles must be presented in row space or vice-versa.
+
+To make an asymetric biplot, rows (or columns) points are plotted from the standard co-ordinates (S) and the profiles of the columns (or the rows) are plotted from the principale coordinates (P) (M. Bendixen 2003).
+
+For a given axis, the standard and principle co-ordinates are related as follows:
+
+P = sqrt(eigenvalue) X S
+
+- P: the principal coordinate of a row (or a column) on the axis
+- eigenvalue: the eigenvalue of the axis
+
+Depending on the situation, other types of display can be set using the argument map (Nenadic and Greenacre 2007)
+
+## Asymetric Biplot
+```{r}
+fviz_ca_biplot(vis_ca, 
+               map ="rowprincipal", arrow=c(TRUE, TRUE),
+               repel = TRUE)
+
+```
+
+This graph uses argument arrows, which is a vector of two logicals specifying if the plot should contain points or arrows. The first value sets the row and the second value sets the columns. The point to take here is if the <b>angle</b> between two arrows is acute, then there is a strong association between the corresponding row and columns. To interpret the distance between rows and columns, there is a need to perpendicularly project row points on the column arrow
+
+
+# Create Predictions
+
+After taking the detail about symmetric and asymetric biplot, there has to be interest to utilize the CA model to predict data. Therefore, here is example of what type of data and prediction
+
+In predicting the data, there is supplementary elements that represent the data we want to predict. Lets take a look.
+
+Describing dataset:
+
+Ref: <https://search.r-project.org/CRAN/refmans/FactoMineR/html/children.html>
+```{r}
+data(children)
+head(children)
+
+```
+
+In this dataset, there is a need to separate between active and supplementary for each column and row, this is to provide active as kinda training dataset and supplementary as test dataset. Here is the description for each part:
+
+- Active rows (rows 1:14) : Rows that are used during the correspondence analysis.
+- Supplementary rows (row.sup 15:18) : The coordinates of these rows will be predicted using the CA information and parameters obtained with active rows/columns
+- Active columns (columns 1:5) : Columns that are used for the correspondence analysis.
+- Supplementary columns (col.sup 6:8) : As supplementary rows, the coordinates of these columns will be predicted also.
+
+
+Specify supplementary rows and columns:
+```{r}
+viss_ca = CA(children, row.sup = 15:18, col.sup = 6:8,
+             graph = FALSE)
+viss_ca
+```
+X       : a data frame (contingency table)
+row.sup : a numeric vector specifying the indexes of the supplementary rows
+col.sup : a numeric vector specifying the indexes of the supplementary columns
+ncp     : number of dimensions kept in the final results.
+graph   : a logical value. If TRUE a graph is displayed.
+
+
+```{r}
+fviz_ca_biplot(viss_ca, repel = TRUE)
+
+```
+
+This is symmetric biplot of the data, notice several diffrent sign and color:
+
+- Active rows are in blue
+- Supplementary rows are in dark blue
+- Columns are in red
+- Supplementary columns are in darkred
+
+Let see the predicted supplementary rows:
+```{r}
+viss_ca$row.sup
+```
+
+Plot of active and supplementary row points:
+```{r}
+fviz_ca_row(viss_ca, repel=TRUE)
+```
+
+
+Lets see the predicted supplementary columns
+```{r}
+viss_ca$col.sup
+```
+
+Plot of active and supplementary columns:
+```{r}
+fviz_ca_col(viss_ca, repel = TRUE)
+
+```
+
+
+In regards of showing graph, there is a way to filtering the result based on cos2 or contribution values, more on that in <http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/113-ca-correspondence-analysis-in-r-essentials/>
+
+## Deal with Outliers
+
+if one or more "outliers" are present in the contigency table, they can dominate the interpretation the axes (M. Bendixen 2003). The outliers can be distinguished from the exceptionally high value of coordinates and contributions as seen in the graph that set far apart from the centroid. If this occur, the remaining columns or rows tend to be tightly clustered which make it difficult to interpret.
+
+To detect outlier, the approach is to lookup for the coordinates of row/column points since it represent the standard deviation of row/column away from the barycentre (M. Bendixen 2003). In order to detect outliers, it usually appear at least one standard deviation away from the barycentre, they contribute also, significantly to the interpretation to one pole of an axis. If there's outlier, it has to be suppressed if used for creatinf CA, otherwise, use it as supplementary points.
+
+
+# Closing
+
+This mark the end of Correspondence Analysis with R, most of the material are taken from the reference that mentioned upfront, hope this explanation can be further described to eliminate the black box, thank you and happy learning! :)
